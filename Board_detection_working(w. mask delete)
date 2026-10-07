@@ -1,7 +1,17 @@
 import cv2
 import numpy as np 
 
-img = cv2.imread('MiniProjekt/Boards/3.jpg')
+img = cv2.imread('Træningsdata/15.jpg')
+
+def deleteMaskFromImage(mask, image):
+    h,w, _ = image.shape
+    for row in range(h):
+        for col in range(w):
+            if mask[col,row] == 255:
+                image[col,row] = 0
+            else:
+                continue
+                
 
 if img is None:
     print("Fejl: Billedet kunne ikke indlæses. Tjek at filstien er korrekt.")
@@ -15,8 +25,6 @@ else:
     # 3. Konverter det opskalerede billede til HSV
     hsv_img = cv2.cvtColor(img_500, cv2.COLOR_BGR2HSV)
 
-    h, s, v = cv2.split(hsv_img)
-    hsv_img = cv2.merge((h, s, v))
 
     # _____________Water___________________________________________________
     lower_water = np.array([100, 111, 90])
@@ -26,12 +34,18 @@ else:
     # Brug img_500 her i stedet for img_5x5:
     res_water = cv2.bitwise_and(img_500, img_500, mask=mask_water)
 
+
+    deleteMaskFromImage(mask_water,hsv_img)
+
+
     # __________________GRASS___________________________________________
     lower_grass = np.array([31, 157, 93])
     upper_grass = np.array([45, 226, 157])
 
     mask_grass = cv2.inRange(hsv_img, lower_grass, upper_grass)
     res_grass = cv2.bitwise_and(img_500, img_500, mask=mask_grass)
+
+    deleteMaskFromImage(mask_grass,hsv_img)
 
     # ____________________________FOREST_____________________________________
     lower_forest = np.array([29, 91, 38])
@@ -40,6 +54,8 @@ else:
     mask_forest = cv2.inRange(hsv_img, lower_forest, upper_forest)
     res_forest = cv2.bitwise_and(img_500, img_500, mask=mask_forest)
 
+    deleteMaskFromImage(mask_forest,hsv_img)
+
     # ____________________FIELD____________________________________________________
     lower_field = np.array([23, 118, 142])
     upper_field = np.array([28, 255, 201])
@@ -47,12 +63,16 @@ else:
     mask_field = cv2.inRange(hsv_img, lower_field, upper_field)
     res_field = cv2.bitwise_and(img_500, img_500, mask=mask_field)
 
-    # ______________________________DESERT___________________________________________
-    lower_dessert = np.array([19, 55, 75])
-    upper_dessert = np.array([28, 163, 131])
+    deleteMaskFromImage(mask_field,hsv_img)
 
-    mask_dessert = cv2.inRange(hsv_img, lower_dessert, upper_dessert)
-    res_dessert = cv2.bitwise_and(img_500, img_500, mask=mask_dessert)
+    # ______________________________DESERT___________________________________________
+    lower_desert = np.array([19, 55, 75])
+    upper_desert = np.array([28, 163, 131])
+
+    mask_desert = cv2.inRange(hsv_img, lower_desert, upper_desert)
+    res_desert = cv2.bitwise_and(img_500, img_500, mask=mask_desert)
+
+    deleteMaskFromImage(mask_desert,hsv_img)
 
     # _______________________MINES____________________________________________________________
     lower_mine = np.array([18, 90, 50])
@@ -61,26 +81,33 @@ else:
     mask_mine = cv2.inRange(hsv_img, lower_mine, upper_mine)
     res_mine = cv2.bitwise_and(img_500, img_500, mask=mask_mine)
 
+    deleteMaskFromImage(mask_mine,hsv_img)
+
     # Vis resultaterne (alle er nu 500x500 pixels)
-    cv2.imshow('original (500x500)', img_500)
+
+    cv2.imshow('Mask_forest', mask_forest)
     cv2.imshow('HSV', hsv_img)
-    cv2.imshow('result forrest', res_forest)
-    cv2.imwrite('res_forrest.png', res_forest)
-
-    cv2.imshow('result field', res_field)
-    cv2.imwrite('res_field.png', res_field)
-
-    cv2.imshow('result dessert', res_dessert)
-    cv2.imwrite('res_dessert.png', res_dessert)
+    cv2.imshow('image', img)
     
-    cv2.imshow('mines', res_mine)
-    cv2.imwrite('res_mine.png', res_mine)
+    #cv2.imshow('original (500x500)', img_500)
+    #cv2.imshow('HSV', hsv_img)
+    #cv2.imshow('result forrest', res_forest)
+    #cv2.imwrite('res_forrest.png', res_forest)
 
-    cv2.imshow('result water', res_water)
-    cv2.imwrite('res_water.png', res_water)
+    #cv2.imshow('result field', res_field)
+    #cv2.imwrite('res_field.png', res_field)
 
-    cv2.imshow('result grass', res_grass)
-    cv2.imwrite('res_grass.png', res_grass)
+    #cv2.imshow('result dessert', res_dessert)
+    #cv2.imwrite('res_dessert.png', res_dessert)
+    
+    #cv2.imshow('mines', res_mine)
+    #cv2.imwrite('res_mine.png', res_mine)
+
+    #cv2.imshow('result water', res_water)
+    #cv2.imwrite('res_water.png', res_water)
+
+    #cv2.imshow('result grass', res_grass)
+    #cv2.imwrite('res_grass.png', res_grass)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()

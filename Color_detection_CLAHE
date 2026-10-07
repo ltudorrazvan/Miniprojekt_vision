@@ -1,0 +1,68 @@
+import cv2
+import numpy as np 
+
+img = cv2.imread('Testdata/12.jpg')
+
+if img is None:
+    print("Fejl: Billedet kunne ikke indlæses")
+else:
+    # 2. Skaler billedet ned til 5x5 pixels
+    img_5x5 = cv2.resize(img, (5, 5), interpolation=cv2.INTER_AREA)
+
+    hsv_img = cv2.cvtColor(img_5x5,cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv_img)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(5, 5))
+    v = clahe.apply(v)
+    hsv_clahe = cv2.merge((h, s, v))
+
+#_____________Water___________________________________________________
+lower_water = np.array([100,140,63])
+upper_water = np.array([110,255,255])
+
+mask_water = cv2.inRange(hsv_clahe,lower_water, upper_water)
+res_water = cv2.bitwise_and(img_5x5, img_5x5, mask = mask_water)
+#__________________GRASS___________________________________________
+lower_grass = np.array([30, 155, 90])
+upper_grass = np.array([48, 235, 160])
+
+mask_grass = cv2.inRange(hsv_img, lower_grass, upper_grass)
+res_grass = cv2.bitwise_and(img_5x5, img_5x5, mask = mask_grass)
+#____________________________FOREST_____________________________________
+lower_forest = np.array([28, 91, 38])
+upper_forest = np.array([50, 215, 80])
+
+mask_forest = cv2.inRange(hsv_img, lower_forest, upper_forest)
+res_forest = cv2.bitwise_and(img_5x5,img_5x5, mask = mask_forest)
+#____________________FIELD____________________________________________________
+lower_field = np.array([24, 215, 125])
+upper_field = np.array([28, 255, 255])
+
+mask_field = cv2.inRange(hsv_clahe, lower_field, upper_field)
+res_field = cv2.bitwise_and(img_5x5,img_5x5, mask = mask_field)
+#______________________________DESERT/DESSERT___________________________________________
+lower_dessert = np.array([40, 67, 70])
+upper_dessert = np.array([78, 155, 135])
+
+mask_dessert = cv2.inRange(img_5x5, lower_dessert, upper_dessert)
+res_dessert = cv2.bitwise_and(img_5x5,img_5x5, mask = mask_dessert)
+#_______________________MINES____________________________________________________________
+lower_mine = np.array([20, 42, 50])
+upper_mine = np.array([60, 66, 80])
+
+mask_mine = cv2.inRange(img_5x5, lower_mine, upper_mine)
+res_mine = cv2.bitwise_and(img_5x5,img_5x5, mask = mask_mine)
+#________________________________________________________________________________________
+
+cv2.imshow('unaltered', img)
+cv2.imshow('original', img_5x5)
+cv2.imshow('HSV_CLAHE', hsv_clahe)
+cv2.imshow('HSV_img', hsv_img)
+cv2.imshow('result forrest', res_forest)
+cv2.imshow('result field', res_field)
+cv2.imshow('result dessert', res_dessert)
+cv2.imshow('mines', res_mine)
+cv2.imshow('result water', res_water)
+cv2.imshow('result grass', res_grass)
+
+cv2.waitKey(0)
+cv2.destoryAllWindows()

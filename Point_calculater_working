@@ -1,0 +1,63 @@
+import cv2
+
+points = 0
+
+#læser alle makserne fra pladen
+res_desert = cv2.imread('MiniProjekt/Blob_res/res_dessert_binary.png',0)
+res_field = cv2.imread('MiniProjekt/Blob_res/res_field_binary.png',0)
+res_forest = cv2.imread('MiniProjekt/Blob_res/res_forrest_binary.png',0)
+res_grass = cv2.imread('MiniProjekt/Blob_res/res_grass_binary.png',0)
+res_mine = cv2.imread('MiniProjekt/Blob_res/res_mine_binary.png',0)
+res_water = cv2.imread('MiniProjekt/Blob_res/res_water_binary.png',0)
+
+#omdanner makser til 5x5
+desert_5x5 = cv2.resize(res_desert, (5, 5), interpolation=cv2.INTER_AREA)
+field_5x5 = cv2.resize(res_field, (5, 5), interpolation=cv2.INTER_AREA)
+forest_5x5 = cv2.resize(res_forest, (5, 5), interpolation=cv2.INTER_AREA)
+grass_5x5 = cv2.resize(res_grass, (5, 5), interpolation=cv2.INTER_AREA)
+mine_5x5 = cv2.resize(res_mine, (5, 5), interpolation=cv2.INTER_AREA)
+water_5x5 = cv2.resize(res_water, (5, 5), interpolation=cv2.INTER_AREA)
+
+#eksempel på crown koordinater
+crown_coords = [(1, 0), (1, 2), (2, 2)]
+
+#funktion til at udregne point
+def calculate_points(img, crowns):
+    num_blobs, connected_blobs = cv2.connectedComponentsWithStats(img, connectivity=4)[0:2] # finder antallet af objekter og et grid over hvilke pixels der hører til hvilket objekt
+    num_blobs -= 1 # minus en fordi baggrunden tælles som objekt
+
+    connected_areas = {} # dictionary til (blob_nr. : [#pixels, [koordinater på hver pixel]])
+    for blob in range(num_blobs): # går antallet af objekter igennem
+        blob += 1 #starter ved 1
+        connected = 0 #starter med 0 connectet pixels
+        coordinates = [] #liste til koordinater på pizels i objekt
+
+        for row in range(5):
+            for col in range(5): #gennemgår 25 pixels
+                if blob == connected_blobs[col][row]: #chekker om hver pixel har samme værdi som det nr objekt den er nået til
+                    connected += 1 #tæller op
+                    coordinates.append((row, col)) # gemmer koordinat
+                else:
+                    continue 
+        connected_areas[blob] = [connected, coordinates] #efter hele objektet er fundet, gemmes nr, antal og koordinater
+
+
+    for i in range(len(connected_areas)): # nu udregnes point for hvert område
+        key = i+1 #starter ved objekt nr. 1
+        
+        crowns_in_area = set(crowns) & set(connected_areas[key][1]) # finder kroner som er i objektet
+        num_crowns_in_area = len(crowns_in_area) # finder antallet af kroner i objektet
+        area_size = connected_areas[key][0] # finder arealet af objektet
+
+        if num_crowns_in_area != 0: #hvis der er kroner i objektet udrenges point
+            points = num_crowns_in_area * area_size
+        else:
+            continue
+        
+    return points
+
+
+
+points = calculate_points(field_5x5, crown_coords)
+print(points) 
+

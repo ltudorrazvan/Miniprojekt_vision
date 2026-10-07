@@ -1,39 +1,44 @@
 import cv2 as cv
 import numpy as np
- 
-img_board = cv.imread('MiniProjekt/Boards/20.jpg')
-assert img_board is not None, "file could not be read, check with os.path.exists()"
+
+#Load board og konverter til grå
+img_board = cv.imread('MiniProjekt/Boards/15.jpg')
 img_gray_board = cv.cvtColor(img_board, cv.COLOR_BGR2GRAY)
 
+#Load template af krone og drej 4 gange
 crown_template_0 = cv.imread('MiniProjekt/Templates/Template_4_small.jpg', cv.IMREAD_GRAYSCALE)
 crown_template_90 = cv.rotate(crown_template_0, cv.ROTATE_90_CLOCKWISE)
 crown_template_180 = cv.rotate(crown_template_90, cv.ROTATE_90_CLOCKWISE)
 crown_template_270 = cv.rotate(crown_template_180, cv.ROTATE_90_CLOCKWISE)
 
-assert crown_template_0 is not None, "file could not be read, check with os.path.exists()"
-w, h = crown_template_0.shape[::-1]
+#finder brede og højde af template
+h, w = crown_template_0.shape
 
+#finder alle template matches 
 result_0 = cv.matchTemplate(img_gray_board,crown_template_0,cv.TM_CCOEFF_NORMED)
 result_90 = cv.matchTemplate(img_gray_board,crown_template_90,cv.TM_CCOEFF_NORMED)
 result_180 = cv.matchTemplate(img_gray_board,crown_template_180,cv.TM_CCOEFF_NORMED)
 result_270 = cv.matchTemplate(img_gray_board,crown_template_270,cv.TM_CCOEFF_NORMED)
 
+#threshold for hvad der godkendes og gemmer locationer for alle resultater bedre end threshold
 threshold = 0.56
 saved_locations_0 = np.where(result_0 >= threshold)
 saved_locations_90 = np.where(result_90 >= threshold)
 saved_locations_180 = np.where(result_180 >= threshold)
 saved_locations_270 = np.where(result_270 >= threshold)
 
+#definerer crown count og to arrays til at gemme lokationer som der allerede er optegnet
 count = 0
 locations_used_real = []
-locations_used = []
-for pt in zip(*saved_locations_0[::-1]):
-    if [round(pt[0]/20)*20, round(pt[1]/20)*20] in locations_used:
-        continue
+locations_used_simple = []
 
+# main kode til at tegne bounding box
+for pt in zip(*saved_locations_0[::-1]):
+
+    #Tjekker om de rigtige koordinater ligger for tæt på en eksisterende bounding box
     is_too_close = False
     for saved_point in locations_used_real:
-        real_x = saved_point[0]  # Her definerer vi real_x
+        real_x = saved_point[0]  # Her definerer vi real_x 
         real_y = saved_point[1]  # Her definerer vi real_y
         
         # Tjek om både x og y er inden for +-5 pixels
@@ -41,18 +46,16 @@ for pt in zip(*saved_locations_0[::-1]):
             is_too_close = True
             break  # Vi har fundet et punkt der var for tæt på, så vi behøver ikke kigge videre
 
+    #Hvis den ikke ligger for tæt på, bliver der tegnet en ny bounding box
     if is_too_close:
         continue
     else:
-        locations_used.append([round(pt[0]/20)*20, round(pt[1]/20)*20])
         locations_used_real.append([int(pt[0]), int(pt[1])])
         cv.rectangle(img_board, pt, (pt[0] + w, pt[1] + h), (0,255,0), 1)
         count += 1
 
-locations_used = []
+#gør det samme, bare med 90 grader template
 for pt in zip(*saved_locations_90[::-1]):
-    if [round(pt[0]/20)*20, round(pt[1]/20)*20] in locations_used:
-        continue
     is_too_close = False
     for saved_point in locations_used_real:
         real_x = saved_point[0]  # Her definerer vi real_x
@@ -66,15 +69,12 @@ for pt in zip(*saved_locations_90[::-1]):
     if is_too_close:
         continue
     else:
-        locations_used.append([round(pt[0]/20)*20, round(pt[1]/20)*20])
         locations_used_real.append([int(pt[0]), int(pt[1])])
         cv.rectangle(img_board, pt, (pt[0] + h, pt[1] + w), (255,255,0), 1)
         count += 1    
 
-locations_used = []
+#gør det samme, bare med 180 grader template
 for pt in zip(*saved_locations_180[::-1]):
-    if [round(pt[0]/20)*20, round(pt[1]/20)*20] in locations_used:
-        continue
     is_too_close = False
     for saved_point in locations_used_real:
         real_x = saved_point[0]  # Her definerer vi real_x
@@ -88,15 +88,12 @@ for pt in zip(*saved_locations_180[::-1]):
     if is_too_close:
         continue
     else:
-        locations_used.append([round(pt[0]/20)*20, round(pt[1]/20)*20])
         locations_used_real.append([int(pt[0]), int(pt[1])])
         cv.rectangle(img_board, pt, (pt[0] + w, pt[1] + h), (0,255,255), 1)
         count += 1   
 
-locations_used = []
+# gør det samme, bare med 270 grader template
 for pt in zip(*saved_locations_270[::-1]):
-    if [round(pt[0]/20)*20, round(pt[1]/20)*20] in locations_used:
-        continue
     is_too_close = False
     for saved_point in locations_used_real:
         real_x = saved_point[0]  # Her definerer vi real_x
@@ -110,15 +107,21 @@ for pt in zip(*saved_locations_270[::-1]):
     if is_too_close:
         continue
     else:
-        locations_used.append([round(pt[0]/20)*20, round(pt[1]/20)*20])
         locations_used_real.append([int(pt[0]), int(pt[1])])
         cv.rectangle(img_board, pt, (pt[0] + h, pt[1] + w), (255,0,255), 1)
         count += 1   
 
- 
-#cv.imwrite('res.png',img_board)
+#konverterer koordinater til 5x5 grid
+used_locations_5x5 = []
+for x in locations_used_real:
+    loc_x = int(x[0]/100)
+    loc_y = int(x[1]/100)
+    used_locations_5x5.append([loc_x, loc_y])
+
+#Printer antal kroner, koordinaterne og viser boardet med bounding boxes
 print("antal kroner: ", count)
-print(locations_used_real)
+print("5x5 grid koordinater: ", used_locations_5x5)
+print("rigtige koordinater: ", locations_used_real)
 cv.imshow('template_match', img_board)
 cv.waitKey(0)
 cv.destroyAllWindows()

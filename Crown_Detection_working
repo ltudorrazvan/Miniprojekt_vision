@@ -1,39 +1,27 @@
 import cv2 as cv
 import numpy as np
 
-#Load board og konverter til grå
+# Load billeder
 img_board = cv.imread('MiniProjekt/Boards/15.jpg')
-img_gray_board = cv.cvtColor(img_board, cv.COLOR_BGR2GRAY)
+img_board_gray = cv.cvtColor(img_board, cv.COLOR_BGR2GRAY)
+crown_template = cv.imread('MiniProjekt/Templates/Template_4_small.jpg', cv.IMREAD_GRAYSCALE)
 
-#Load template af krone og drej 4 gange
-crown_template_0 = cv.imread('MiniProjekt/Templates/Template_4_small.jpg', cv.IMREAD_GRAYSCALE)
-crown_template_90 = cv.rotate(crown_template_0, cv.ROTATE_90_CLOCKWISE)
-crown_template_180 = cv.rotate(crown_template_90, cv.ROTATE_90_CLOCKWISE)
-crown_template_270 = cv.rotate(crown_template_180, cv.ROTATE_90_CLOCKWISE)
+h, w = crown_template.shape
 
-#finder brede og højde af template
-h, w = crown_template_0.shape
+# Generer de 4 roterede templates
+rotations = [crown_template, cv.rotate(crown_template, cv.ROTATE_90_CLOCKWISE),
+             cv.rotate(crown_template, cv.ROTATE_180), cv.rotate(crown_template, cv.ROTATE_90_COUNTERCLOCKWISE)]
 
-#finder alle template matches 
-result_0 = cv.matchTemplate(img_gray_board,crown_template_0,cv.TM_CCOEFF_NORMED)
-result_90 = cv.matchTemplate(img_gray_board,crown_template_90,cv.TM_CCOEFF_NORMED)
-result_180 = cv.matchTemplate(img_gray_board,crown_template_180,cv.TM_CCOEFF_NORMED)
-result_270 = cv.matchTemplate(img_gray_board,crown_template_270,cv.TM_CCOEFF_NORMED)
-
-#threshold for hvad der godkendes og gemmer locationer for alle resultater bedre end threshold
+# Match og find lokationer for alle 4 vinkler på én linje
 threshold = 0.56
-saved_locations_0 = np.where(result_0 >= threshold)
-saved_locations_90 = np.where(result_90 >= threshold)
-saved_locations_180 = np.where(result_180 >= threshold)
-saved_locations_270 = np.where(result_270 >= threshold)
+saved_locations = [np.where(cv.matchTemplate(img_board_gray, i, cv.TM_CCOEFF_NORMED) >= threshold) for i in rotations]
 
 #definerer crown count og to arrays til at gemme lokationer som der allerede er optegnet
 count = 0
 locations_used_real = []
-locations_used_simple = []
 
 # main kode til at tegne bounding box
-for pt in zip(*saved_locations_0[::-1]):
+for pt in zip(*saved_locations[0][::-1]):
 
     #Tjekker om de rigtige koordinater ligger for tæt på en eksisterende bounding box
     is_too_close = False
@@ -55,7 +43,7 @@ for pt in zip(*saved_locations_0[::-1]):
         count += 1
 
 #gør det samme, bare med 90 grader template
-for pt in zip(*saved_locations_90[::-1]):
+for pt in zip(*saved_locations[1][::-1]):
     is_too_close = False
     for saved_point in locations_used_real:
         real_x = saved_point[0]  # Her definerer vi real_x
@@ -74,7 +62,7 @@ for pt in zip(*saved_locations_90[::-1]):
         count += 1    
 
 #gør det samme, bare med 180 grader template
-for pt in zip(*saved_locations_180[::-1]):
+for pt in zip(*saved_locations[2][::-1]):
     is_too_close = False
     for saved_point in locations_used_real:
         real_x = saved_point[0]  # Her definerer vi real_x
@@ -93,7 +81,7 @@ for pt in zip(*saved_locations_180[::-1]):
         count += 1   
 
 # gør det samme, bare med 270 grader template
-for pt in zip(*saved_locations_270[::-1]):
+for pt in zip(*saved_locations[3][::-1]):
     is_too_close = False
     for saved_point in locations_used_real:
         real_x = saved_point[0]  # Her definerer vi real_x

@@ -1,0 +1,193 @@
+import cv2
+import numpy as np
+
+img_board = cv2.imread('MiniProjekt/Boards/39.jpg')
+
+img_board_gray = cv2.cvtColor(img_board, cv2.COLOR_BGR2GRAY)
+crown_template = cv2.imread('MiniProjekt/Templates/Template_4_small.jpg', cv2.IMREAD_GRAYSCALE)
+
+h, w = crown_template.shape
+points = 0
+
+# Generer de 4 roterede templates
+rotations = [crown_template, cv2.rotate(crown_template, cv2.ROTATE_90_CLOCKWISE),
+             cv2.rotate(crown_template, cv2.ROTATE_180), cv2.rotate(crown_template, cv2.ROTATE_90_COUNTERCLOCKWISE)]
+
+# Match og find lokationer for alle 4 vinkler på én linje
+threshold = 0.56
+saved_locations = [np.where(cv2.matchTemplate(img_board_gray, i, cv2.TM_CCOEFF_NORMED) >= threshold) for i in rotations]
+
+#definerer crown count og to arrays til at gemme lokationer som der allerede er optegnet
+count = 0
+locations_used_real = []
+
+def deleteMaskFromImage(mask, image):
+    h,w, _ = image.shape
+    for row in range(h):
+        for col in range(w):
+            if mask[col,row] == 255:
+                image[col,row] = 0
+            else:
+                continue
+
+def calculate_points(mask, crowns):
+    point = 0
+    num_blobs, connected_blobs = cv2.connectedComponentsWithStats(mask, connectivity=4)[0:2] # finder antallet af objekter og et grid over hvilke pixels der hører til hvilket objekt
+    num_blobs -= 1 # minus en fordi baggrunden tælles som objekt
+
+    connected_areas = {} # dictionary til (blob_nr. : [#pixels, [koordinater på hver pixel]])
+    for blob in range(num_blobs): # går antallet af objekter igennem
+        blob += 1 #starter ved key 1 i dict
+        connected = 0 #starter med 0 connectet pixels
+        coordinates = [] #liste til koordinater på pixels i objekt
+
+        for row in range(5):
+            for col in range(5): #gennemgår 25 pixels
+                if blob == connected_blobs[col][row]: #chekker om hver pixel har samme værdi som det nr objekt den er nået til
+                    connected += 1 #tæller op
+                    coordinates.append((int(row), int(col))) # gemmer koordinat
+                else:
+                    continue 
+        connected_areas[blob] = [connected, coordinates] #efter hele objektet er fundet, gemmes nr, antal og koordinater
+
+    for i in range(len(connected_areas)): # nu udregnes point for hvert område
+        key = i+1 #starter ved objekt nr. 1
+
+        crowns_in_area = set(crowns) & set(connected_areas[key][1]) # finder kroner som er i objektet
+        num_crowns_in_area = len(crowns_in_area) # finder antallet af kroner i objektet
+        area_size = connected_areas[key][0] # finder arealet af objektet
+        if points >= 13:
+            print(num_crowns_in_area)
+            print(area_size)
+            print(crowns)
+        if num_crowns_in_area != 0: #hvis der er kroner i objektet udrenges point
+            point = (num_crowns_in_area * area_size)
+        else:
+            continue
+    return point
+
+#--------------------------------------------------------------Template Matching-----------------------------------------------------------------------
+
+# main kode til at tegne bounding box
+for x in range(4):
+    for pt in zip(*saved_locations[x][::-1]):
+        #Tjekker om de rigtige koordinater ligger for tæt på en eksisterende bounding box
+        is_too_close = False
+        for saved_point in locations_used_real:
+            real_x = saved_point[0]  # Her definerer vi real_x 
+            real_y = saved_point[1]  # Her definerer vi real_y
+            
+            # Tjek om både x og y er inden for +-5 pixels
+            if abs(real_x - pt[0]) <= 5 and abs(real_y - pt[1]) <= 5:
+                is_too_close = True
+                break  # Vi har fundet et punkt der var for tæt på, så vi behøver ikke kigge videre
+
+        #Hvis den ikke ligger for tæt på, bliver der tegnet en ny bounding box
+        if is_too_close:
+            continue
+        else:
+            locations_used_real.append((int(pt[0]), int(pt[1])))
+            if x % 2 == 0:
+                cv2.rectangle(img_board, pt, (pt[0] + w, pt[1] + h), (0,255,0), 1)
+                count += 1
+            else:
+                cv2.rectangle(img_board, pt, (pt[0] + h, pt[1] + w), (0,255,0), 1)
+                count += 1
+
+#konverterer koordinater til 5x5 grid
+found_crown_coordinates = []
+for x in locations_used_real:
+    loc_x = int(x[0]/100)
+    loc_y = int(x[1]/100)
+    found_crown_coordinates.append((loc_x, loc_y))
+
+
+#----------------------------------------------------------------------------------Template Mathcing Slut----------------------------------------------------------------
+                
+
+
+# 1. Skaler billedet ned til 5x5 pixels
+img_5x5 = cv2.resize(img_board, (5, 5), interpolation=cv2.INTER_AREA)
+
+# 3. Konverter det opskalerede billede til HSV
+hsv_img = cv2.cvtColor(img_5x5, cv2.COLOR_BGR2HSV)
+
+
+# _____________Water___________________________________________________
+lower_water = np.array([100, 111, 90])
+upper_water = np.array([110, 255, 190])
+
+mask_water = cv2.inRange(hsv_img, lower_water, upper_water)
+# Brug img_5x5 her i stedet for img_5x5:
+res_water = cv2.bitwise_and(img_5x5, img_5x5, mask=mask_water)
+
+points += calculate_points(mask_water, found_crown_coordinates)
+deleteMaskFromImage(mask_water,hsv_img)
+print(points)
+
+
+# __________________GRASS___________________________________________
+lower_grass = np.array([31, 157, 93])
+upper_grass = np.array([45, 226, 157])
+
+mask_grass = cv2.inRange(hsv_img, lower_grass, upper_grass)
+res_grass = cv2.bitwise_and(img_5x5, img_5x5, mask=mask_grass)
+
+points += calculate_points(mask_grass, found_crown_coordinates)
+deleteMaskFromImage(mask_grass,hsv_img)
+print(points)
+# ____________________________FOREST_____________________________________
+lower_forest = np.array([29, 91, 38])
+upper_forest = np.array([50, 199, 80])
+
+mask_forest = cv2.inRange(hsv_img, lower_forest, upper_forest)
+res_forest = cv2.bitwise_and(img_5x5, img_5x5, mask=mask_forest)
+
+points += calculate_points(mask_forest, found_crown_coordinates)
+deleteMaskFromImage(mask_forest,hsv_img)
+print(points)
+# ____________________FIELD____________________________________________________
+lower_field = np.array([23, 118, 142])
+upper_field = np.array([28, 255, 201])
+
+mask_field = cv2.inRange(hsv_img, lower_field, upper_field)
+res_field = cv2.bitwise_and(img_5x5, img_5x5, mask=mask_field)
+
+points += calculate_points(mask_field, found_crown_coordinates)
+deleteMaskFromImage(mask_field,hsv_img)
+print(points)
+# ______________________________DESERT___________________________________________
+lower_desert = np.array([19, 55, 75])
+upper_desert = np.array([28, 163, 131])
+
+mask_desert = cv2.inRange(hsv_img, lower_desert, upper_desert)
+res_desert = cv2.bitwise_and(img_5x5, img_5x5, mask=mask_desert)
+
+points += calculate_points(mask_desert, found_crown_coordinates)
+deleteMaskFromImage(mask_desert,hsv_img)
+print(points)
+# _______________________MINES____________________________________________________________
+lower_mine = np.array([18, 90, 50])
+upper_mine = np.array([24, 165, 91])
+
+mask_mine = cv2.inRange(hsv_img, lower_mine, upper_mine)
+res_mine = cv2.bitwise_and(img_5x5, img_5x5, mask=mask_mine)
+
+points += calculate_points(mask_mine, found_crown_coordinates)
+deleteMaskFromImage(mask_mine,hsv_img)
+print(points)
+# Vis resultaterne (alle er nu 500x500 pixels)
+
+#Printer antal kroner, koordinaterne og viser boardet med bounding boxes
+print("antal kroner: ", count)
+print("point scored: ", points)
+cv2.imshow('Mask_forest', mask_forest)
+cv2.imshow('Mask_water', mask_water)
+cv2.imshow('Mask_field', mask_field)
+cv2.imshow('Mask_desert', mask_desert)
+cv2.imshow('Mask_mine', mask_mine)
+cv2.imshow('Mask_grass', mask_grass)
+
+cv2.imshow('template_match', img_board)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
